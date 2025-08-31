@@ -3,9 +3,10 @@ import heroImage from "@/assets/hero-aviation.jpg";
 
 interface HeroSectionProps {
   onSearch: (flightNumber: string, date: string) => void;
+  isLoading?: boolean;
 }
 
-export const HeroSection = ({ onSearch }: HeroSectionProps) => {
+export const HeroSection = ({ onSearch, isLoading = false }: HeroSectionProps) => {
   return (
     <section className="relative min-h-screen flex items-center justify-center">
       {/* Background */}
@@ -50,7 +51,7 @@ export const HeroSection = ({ onSearch }: HeroSectionProps) => {
 
           {/* Search Form */}
           <div className="pt-8">
-            <FlightSearchForm onSearch={onSearch} />
+            <FlightSearchForm onSearch={onSearch} isLoading={isLoading} />
           </div>
 
           {/* Trust Indicators */}

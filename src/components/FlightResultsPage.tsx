@@ -1,81 +1,41 @@
-import { ArrowLeft, Clock, Euro, AlertCircle, CheckCircle, Plane } from "lucide-react";
+import { ArrowLeft, Clock, Euro, AlertCircle, CheckCircle, Plane, MapPin, Clock4 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { FlightData, CompensationInfo } from "@/types/flight";
+
+const formatTime = (isoString: string): string => {
+  return new Date(isoString).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+};
+
+const formatDelay = (delayMinutes?: number): string => {
+  if (!delayMinutes || delayMinutes === 0) return "On time";
+  const hours = Math.floor(delayMinutes / 60);
+  const minutes = delayMinutes % 60;
+  if (hours > 0) {
+    return `${hours}h ${minutes}m delay`;
+  }
+  return `${minutes}m delay`;
+};
 
 interface FlightResultsPageProps {
-  flightNumber: string;
-  date: string;
+  flightData: FlightData;
+  compensation: CompensationInfo;
   onBack: () => void;
 }
 
-// Mock data - In real app, this would come from flight API
-const getMockFlightData = (flightNumber: string) => {
-  const delays = [45, 180, 25, 240, 90, 0];
-  const delay = delays[Math.floor(Math.random() * delays.length)];
+export const FlightResultsPage = ({ flightData, compensation, onBack }: FlightResultsPageProps) => {
+  const delay = flightData.departure.delay || 0;
   
-  return {
-    flightNumber,
-    airline: flightNumber.substring(0, 2),
-    route: "LHR → CDG",
-    scheduledTime: "14:30",
-    actualTime: delay > 0 ? `${14 + Math.floor(delay / 60)}:${30 + (delay % 60)}` : "14:30",
-    delay,
-    status: delay === 0 ? "On Time" : delay < 180 ? "Delayed" : "Significantly Delayed",
+  const getStatusColor = (delay: number) => {
+    if (delay === 0) return "default";
+    if (delay < 120) return "secondary"; 
+    return "destructive";
   };
-};
-
-const getCompensationInfo = (delay: number, flightNumber: string) => {
-  const isEuRoute = Math.random() > 0.3; // 70% chance of EU route
-  
-  if (!isEuRoute) {
-    return {
-      region: "Non-EU",
-      eligible: false,
-      amount: 0,
-      message: "This flight is not covered by EU compensation rules, but you may have other rights.",
-      rights: [
-        "Refund if flight cancelled",
-        "Rebooking on next available flight",
-        "Meals and refreshments for delays over 2 hours",
-        "Hotel accommodation for overnight delays",
-        "Transportation to/from hotel"
-      ]
-    };
-  }
-
-  if (delay >= 180) { // 3+ hours
-    return {
-      region: "EU",
-      eligible: true,
-      amount: delay >= 210 ? 600 : 400, // €600 for 3.5+ hours, €400 for 3+ hours
-      message: "Great news! You're likely entitled to compensation under EU Regulation 261/2004.",
-      rights: [
-        `€${delay >= 210 ? 600 : 400} compensation per passenger`,
-        "Meals and refreshments",
-        "Hotel accommodation if needed", 
-        "Right to refund or rebooking"
-      ]
-    };
-  }
-
-  return {
-    region: "EU", 
-    eligible: false,
-    amount: 0,
-    message: "Unfortunately, delays under 3 hours don't qualify for EU compensation.",
-    rights: [
-      "Meals and refreshments for delays over 2 hours",
-      "Hotel accommodation for overnight delays",
-      "Transportation to/from hotel",
-      "Right to rebooking"
-    ]
-  };
-};
-
-export const FlightResultsPage = ({ flightNumber, date, onBack }: FlightResultsPageProps) => {
-  const flightData = getMockFlightData(flightNumber);
-  const compensation = getCompensationInfo(flightData.delay, flightNumber);
 
   return (
     <div className="min-h-screen bg-background">
@@ -94,8 +54,10 @@ export const FlightResultsPage = ({ flightNumber, date, onBack }: FlightResultsP
           <div className="flex items-center gap-4">
             <Plane className="h-8 w-8" />
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">{flightData.flightNumber}</h1>
-              <p className="text-primary-foreground/80">{flightData.route} • {date}</p>
+              <h1 className="text-2xl md:text-3xl font-bold">{flightData.flight_number}</h1>
+              <p className="text-primary-foreground/80">
+                {flightData.departure.iata} → {flightData.arrival.iata} • {flightData.airline.name}
+              </p>
             </div>
           </div>
         </div>
@@ -113,28 +75,53 @@ export const FlightResultsPage = ({ flightNumber, date, onBack }: FlightResultsP
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <div className="text-sm text-muted-foreground">Scheduled</div>
-                  <div className="text-lg font-semibold">{flightData.scheduledTime}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Actual</div>
-                  <div className="text-lg font-semibold">{flightData.actualTime}</div>
-                </div>
-                <div>
-                  <Badge 
-                    variant={flightData.delay === 0 ? "default" : flightData.delay < 180 ? "secondary" : "destructive"}
-                    className="text-sm"
-                  >
-                    {flightData.status}
-                  </Badge>
-                </div>
-                {flightData.delay > 0 && (
-                  <div className="text-sm">
-                    <span className="font-medium">Delay: </span>
-                    {Math.floor(flightData.delay / 60)}h {flightData.delay % 60}m
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Departure</div>
+                    <div className="font-semibold">{flightData.departure.airport}</div>
+                    <div className="text-sm">
+                      Scheduled: {formatTime(flightData.departure.scheduled)}
+                    </div>
+                    <div className="text-sm">
+                      Actual: {formatTime(flightData.departure.actual || flightData.departure.scheduled)}
+                    </div>
+                    {flightData.departure.terminal && (
+                      <div className="text-xs text-muted-foreground">Terminal {flightData.departure.terminal}</div>
+                    )}
+                    {flightData.departure.gate && (
+                      <div className="text-xs text-muted-foreground">Gate {flightData.departure.gate}</div>
+                    )}
                   </div>
-                )}
+                  
+                  <div>
+                    <div className="text-sm text-muted-foreground">Arrival</div>
+                    <div className="font-semibold">{flightData.arrival.airport}</div>
+                    <div className="text-sm">
+                      Scheduled: {formatTime(flightData.arrival.scheduled)}
+                    </div>
+                    <div className="text-sm">
+                      Actual: {formatTime(flightData.arrival.actual || flightData.arrival.scheduled)}
+                    </div>
+                    {flightData.arrival.terminal && (
+                      <div className="text-xs text-muted-foreground">Terminal {flightData.arrival.terminal}</div>
+                    )}
+                    {flightData.arrival.gate && (
+                      <div className="text-xs text-muted-foreground">Gate {flightData.arrival.gate}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <Badge 
+                    variant={getStatusColor(delay)}
+                    className="text-sm mb-2"
+                  >
+                    {flightData.flight_status}
+                  </Badge>
+                  <div className="text-sm text-muted-foreground">
+                    {formatDelay(delay)}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
